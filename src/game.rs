@@ -1,16 +1,6 @@
-use std::{
-    error,
-    fmt::{Debug, Display},
-    path::Iter,
-    usize,
-};
+use std::{fmt::Display, usize};
 
 use anyhow::Result;
-use crossterm::{
-    style::{Color, Stylize},
-    terminal::size,
-};
-use thiserror::Error;
 
 pub type Hint = Vec<u32>;
 
@@ -145,7 +135,7 @@ impl Game {
     //     }
     // }
     pub fn find_possible_indices(hint: Hint, line: Vec<Square>) -> Vec<Vec<usize>> {
-        fn can_seg_be_placed(segment: u32, start_loc: usize, line: &Vec<Square>) -> bool {
+        fn can_seg_be_placed(segment: u32, start_loc: usize, line: &[Square]) -> bool {
             // First check that the segment will be placed within the bounds of the line
             let segment = segment as usize; // segment gets used a lot with start_loc to index
                                             // line, so we shadow it with this conversion to usize
@@ -169,21 +159,17 @@ impl Game {
             if line.get(start_loc + 1) == Some(Square::Filled).as_ref() {
                 return false;
             }
-            return true;
+            true
         }
         /// Places a segment as far left as possible. Returns the index of the left-most index the
         /// segment can start it if it can be placed, else None
         fn place_segment_left(
             segment: u32,
             min_index: usize,
-            line: &mut Vec<Square>,
+            line: &mut [Square],
         ) -> Option<usize> {
-            for i in min_index..line.len() - segment as usize + 1 {
-                if can_seg_be_placed(segment, i, &line) {
-                    return Some(i);
-                }
-            }
-            return None;
+            (min_index..line.len() - segment as usize + 1)
+                .find(|&i| can_seg_be_placed(segment, i, line))
         }
         let mut possible_positions: Vec<Vec<usize>> = Vec::with_capacity(hint.len());
         let mut next_segment_index = 0usize;

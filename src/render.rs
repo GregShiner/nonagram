@@ -3,7 +3,7 @@ use std::fmt::Display;
 use anyhow::Result;
 use crossterm::style::Stylize;
 
-use crate::game::{self, Game, Hint, Square};
+use crate::game::{Game, Hint, Square};
 
 impl Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -31,7 +31,7 @@ pub fn place_object<T: Clone>(
     object: Vec<Vec<T>>,
     row: usize,
     col: usize,
-    buffer: &mut Vec<Vec<T>>,
+    buffer: &mut [Vec<T>],
 ) -> Result<()> {
     let obj_cols = object[0].len();
     for (i, obj_row) in object.iter().enumerate() {
@@ -49,7 +49,7 @@ pub fn double_vec_to_string<T: Display>(buffer: Vec<Vec<T>>) -> String {
 }
 
 impl Game {
-    pub fn render_hints(hints: &Vec<Hint>) -> Vec<Vec<String>> {
+    pub fn render_hints(hints: &[Hint]) -> Vec<Vec<String>> {
         // im just gonna overly abstract this logic bc "readability" or whatever tf that is
         fn render_hint(hint: &Hint, max_segments: usize, max_digits: usize) -> Vec<String> {
             let segments = hint.len();
@@ -70,7 +70,7 @@ impl Game {
                 };
                 // ya nvm idc, allocate deez nuts
                 padded_segment_chars.extend(vec![" "; max_digits - segment_str.len()]);
-                padded_segment_chars.extend(segment_str.chars());
+                padded_segment_chars.push_str(&segment_str);
 
                 for character in padded_segment_chars.chars() {
                     match dark_grey {
@@ -113,7 +113,7 @@ impl Game {
             let mut transposed = vec![vec!["".to_string(); matrix.len()]; matrix[0].len()];
             for i in 0..matrix.len() {
                 for j in 0..matrix[0].len() {
-                    transposed[j][i] = matrix[i][j].clone();
+                    transposed[j][i].clone_from(&matrix[i][j]);
                 }
             }
             transposed
