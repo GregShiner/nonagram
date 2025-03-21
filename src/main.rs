@@ -10,9 +10,12 @@ use crossterm::{
     style::{self, Print, Stylize},
     terminal,
 };
+use game::{Game, Square};
 
 mod game;
 mod render;
+mod test;
+use crate::test::line::test_line;
 
 fn main() -> anyhow::Result<()> {
     let col_hints = vec![
@@ -36,16 +39,19 @@ fn main() -> anyhow::Result<()> {
         vec![1],
     ];
     let mut test_game = game::Game::new(col_hints, row_hints)?;
+    let mut solver = game::Solver::new(test_game);
+
+    solver.solve();
 
     let mut stdout = io::stdout();
     let _ = execute!(
         stdout,
         terminal::EnterAlternateScreen,
         cursor::MoveTo(0, 0),
-        Print(render::double_vec_to_string(test_game.render_all()))
+        Print(render::double_vec_to_string(solver.game.render_all()))
     )?;
 
-    std::thread::sleep(Duration::from_secs(30));
+    std::thread::sleep(Duration::from_secs(10));
     execute!(stdout, terminal::LeaveAlternateScreen)?;
     Ok(())
 }

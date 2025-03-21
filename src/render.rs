@@ -9,7 +9,7 @@ impl Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Square::Unknown => write!(f, "{}", " ".on_white()),
-            Square::Filled => write!(f, "{}", " ".on_black()),
+            Square::Filled => write!(f, "{}", "■".black().on_white()),
             Square::Empty => write!(f, "{}", "X".black().on_white()),
         }
     }

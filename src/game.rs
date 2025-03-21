@@ -1,8 +1,18 @@
-use std::{fmt::Display, usize};
+use std::{collections::BinaryHeap, fmt::Display, iter::zip, ops::Index, usize};
 
 use anyhow::Result;
 
 pub type Hint = Vec<u32>;
+/// Given a hint and a line with some of the segments placed, a line of SegmentPlacements may look
+/// like this:
+/// Given:
+/// Hint: 2, 3, 2
+/// Line length: 10
+/// Line:           OOXXOOOXOO (O: filled space, X: empty space)
+/// SegPlacements:  00NN111N22
+/// N Represents a None, and each number represents a Some(usize) where the number is the index of
+/// the Hints that is at that possition
+pub type SegmentPlacement = Option<usize>;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum Square {
@@ -18,6 +28,18 @@ pub struct Game {
     pub row_hints: Vec<Hint>,
     pub grid_pos: Option<(usize, usize)>, // Calculated when render_all is called
     pub grid: Vec<Vec<Square>>,
+}
+
+pub enum Job {
+    Row(usize),
+    Col(usize),
+}
+
+pub struct Solver {
+    pub game: Game,
+    // pub job_list: BinaryHeap<(i32, Job)>,
+    pub solved_rows: Vec<bool>,
+    pub solved_cols: Vec<bool>,
 }
 
 impl Game {
@@ -40,6 +62,10 @@ impl Game {
         (self.row_hints[i].clone(), self.grid[i].clone())
     }
 
+    pub fn set_row(&mut self, i: usize, row: Vec<Square>) {
+        self.grid[i] = row;
+    }
+
     /// Gets a column as a line and its corresponding hint
     pub fn get_col(&self, i: usize) -> (Hint, Vec<Square>) {
         (
@@ -48,8 +74,15 @@ impl Game {
         )
     }
 
+    pub fn set_col(&mut self, i: usize, col: Vec<Square>) {
+        self.grid
+            .iter_mut()
+            .zip(col.iter())
+            .for_each(|(old, new)| old[i] = new.clone())
+    }
+
     /// Checks if a line meets the criteria of a corresponding hint
-    pub fn check_line(hint: Hint, line: Vec<Square>) -> bool {
+    pub fn check_line(hint: &[u32], line: &[Square]) -> bool {
         // theres a lot of cases so heres some important ones
         // last segment is at the end of the line
         // last segment is not at the end of the line
@@ -82,113 +115,247 @@ impl Game {
         }
 
         segments == hint
-        /* let mut in_segment = false; // TODO: maybe get rid of this
-        let mut segment_len = 0u32;
-        let mut hint_segment_index = 0usize;
-        let mut hint_segment_len = hint[hint_segment_index];
-
-        for square in line {
-            match square {
-                Square::Filled => {
-                    in_segment = true;
-                    segment_len += 1;
-                }
-                _ => {
-                    in_segment = false;
-                    if segment_len < hint_segment_len {
-                        return false;
-                    } else {
-                        hint_segment_index += 1;
-                        hint_segment_len = hint[hint_segment_index]; // This won't work when the
-                                                                     // last segment is hit. the index will increment beyond where the hint ends
-                    }
-                    segment_len = 0;
-                }
-            }
-
-            // if current segment is bigger than expected, it's no good
-            if segment_len > hint_segment_len {
-                return false;
-            }
-        }
-        // check that all segments have been checked
-        if hint_segment_index + 1 != hint.len() {
-            return false;
-        }
-        // figure out what to do when the segment is at the end of the line
-        if segment_len > 0 {}
-        return true; */
     }
 
-    /// Given the current state of a line and its hint, return a new line with squares either
-    /// filled or crossed if they are guaranteed to be as such.
-    // pub fn ease_line(hint: Hint, line: Vec<Square>) -> Vec<Square> {
-    //     let mut new_line = line.clone();
-    //     let mut placing_squares = false;
-    //     let mut squares_remaining = 0u32;
-    //     for (i, square) in line.iter().enumerate() {
-    //         match square {
-    //             Square::Unknown => todo!(),
-    //             Square::Filled => todo!(),
-    //             Square::Empty => todo!(),
-    //         }
-    //     }
-    // }
-    pub fn find_possible_indices(hint: Hint, line: Vec<Square>) -> Vec<Vec<usize>> {
-        fn can_seg_be_placed(segment: u32, start_loc: usize, line: &[Square]) -> bool {
-            // First check that the segment will be placed within the bounds of the line
+    /// Given the current state of a line and its hint, return a vec of the segments placed as far
+    /// left as possible. The values represent the index in the Hint vec that they correspond to
+    pub fn place_all_left(hint: &[u32], line: &[Square]) -> Option<Vec<SegmentPlacement>> {
+        /// Check if a segment fits starting at start_index
+        /// Does not check if it touches other filled spaces
+        /// Only checks if there are x's in the way
+        fn can_seg_be_placed(segment: u32, line: &[Square], start_index: usize) -> bool {
+            // First check that the segment will fit within the bounds of the line
             let segment = segment as usize; // segment gets used a lot with start_loc to index
                                             // line, so we shadow it with this conversion to usize
-            let end_loc = segment + start_loc - 1;
-            if end_loc >= line.len() {
+            if segment > line.len() {
                 return false;
             }
-            // Now check that there are no x's where the segment is placed
-            if line[start_loc..end_loc + 1] // Add back 1 since range ends are exclusive
+
+            if line[start_index..start_index + segment] // TODO: Check if this needs + 1 (prob no)
                 .iter()
                 .any(|square| *square == Square::Empty)
             {
                 return false;
             }
-            // Finally, check that there are no filled squares on either side of the segment
-            // using line.get returns None if its out of bounds, so this saves us the step of
-            // bounds checking first, since we only care if its in bounds and has a square
-            if line.get(start_loc - 1) == Some(Square::Filled).as_ref() {
-                return false;
-            }
-            if line.get(start_loc + 1) == Some(Square::Filled).as_ref() {
-                return false;
-            }
             true
         }
+
         /// Places a segment as far left as possible. Returns the index of the left-most index the
-        /// segment can start it if it can be placed, else None
+        /// segment can start at if it can be placed, else None
+        /// Takes an index to start the search at
         fn place_segment_left(
             segment: u32,
-            min_index: usize,
-            line: &mut [Square],
+            line: &[Square],
+            search_start_index: usize,
         ) -> Option<usize> {
-            (min_index..line.len() - segment as usize + 1)
-                .find(|&i| can_seg_be_placed(segment, i, line))
+            // Loop through every possible starting pos, which starts at start_index and goes up to
+            // 1 segment length before the end of the line since it can't fit anywhere after that.
+            (search_start_index..line.len() + 1 - segment as usize)
+                .find(|i| can_seg_be_placed(segment, line, *i))
         }
-        let mut possible_positions: Vec<Vec<usize>> = Vec::with_capacity(hint.len());
-        let mut next_segment_index = 0usize;
-        let mut scratch_line = line.clone();
-        // first, find initial valid position of all segments.
-        // do this by placing each segment as far left as possible
-        for segment in hint {
-            let mut new_posibilities = Vec::new();
-            match place_segment_left(segment, next_segment_index, &mut scratch_line) {
-                Some(segment_index) => {
-                    next_segment_index = segment_index + segment as usize + 1; // Add 1 because
-                                                                               // there needs to be a gap of 1.
-                    new_posibilities.push(segment_index);
-                }
-                None => todo!(),
+
+        fn place_segment(segment: u32, line: &mut [Square], index: usize) {
+            let _ = line[index..index + segment as usize]
+                .iter_mut()
+                .for_each(|square| *square = Square::Filled);
+        }
+
+        fn place_in_segment_placements(
+            // Segment placements is a representation of the Line that includes data of what
+            // segment a cell is a part of
+            placements: &mut [SegmentPlacement],
+            segment: u32,
+            segment_index: usize,
+            pos: usize,
+        ) {
+            let _ = placements[pos..pos + segment as usize]
+                .iter_mut()
+                .for_each(|cell| *cell = Some(segment_index));
+        }
+
+        /// Given a slice of line indexes for each hint, place them on the line
+        fn place_segment_positions(
+            positions: &[usize],
+            hint: &[u32],
+            size: usize,
+        ) -> Vec<SegmentPlacement> {
+            let mut segment_placements: Vec<SegmentPlacement> = vec![None; size];
+            assert_eq!(positions.len(), hint.len());
+            for (pos, (seg_index, seg)) in zip(positions, hint.iter().enumerate()) {
+                place_in_segment_placements(&mut segment_placements, *seg, seg_index, *pos)
             }
-            possible_positions.push(new_posibilities);
+            segment_placements
         }
-        possible_positions
+
+        /// Recursively places each segment on the line.
+        /// On each recursive step, places the first segment in the slice as far left as possible
+        /// starting at the start_index
+        /// Returns an accumulating line of positions for each segment to be placed at
+        fn rec_place_left(
+            hint: &[u32],
+            hint_index: usize,
+            line: &[Square],
+            start_index: usize,
+        ) -> Option<Vec<usize>> {
+            let seg_to_place = match hint.get(hint_index) {
+                None => {
+                    // BASE CASE
+                    // Reached end of segments, check if line is valid.
+                    return match Game::check_line(hint, line) {
+                        // The line is valid and theres no more segs to place
+                        true => Some(vec![]),
+                        false => None,
+                    };
+                }
+                Some(seg) => seg,
+            };
+
+            for i in start_index..line.len() + 1 - *seg_to_place as usize {
+                // TODO: Check for off by 1
+                let placement_index = match place_segment_left(*seg_to_place, line, i) {
+                    None => {
+                        return None;
+                    }
+                    Some(placement_index) => placement_index,
+                };
+                let mut new_line: Vec<_> = line.to_vec(); // ya we just heap allocating it all
+                place_segment(*seg_to_place, &mut new_line, placement_index);
+                let next_partial = match rec_place_left(
+                    hint,
+                    hint_index + 1,
+                    &new_line,
+                    i + *seg_to_place as usize + 1, // TODO: No fuckin way this is correct
+                ) {
+                    None => continue,
+                    Some(partial_line) => partial_line,
+                };
+                // Putting this before next_partial may or may not improve performance.
+                // Having it after make a heap alloc only happen when theres a valid next_partial
+                // But having it before may allow me to not build backwards
+                let mut new_partial = Vec::with_capacity(next_partial.len());
+                new_partial.push(placement_index);
+                new_partial.extend(next_partial);
+                return Some(new_partial); // TODO: PLEASE find any way to not build a vector BACKWARDS,
+                                          // realloc is gonna go nuts
+            }
+            None
+        }
+        let positions = rec_place_left(hint, 0, &line, 0);
+        let placements =
+            positions.map(|positions| place_segment_positions(&positions, hint, line.len()));
+        placements
+    }
+
+    pub fn place_all_right(hint: &[u32], line: &[Square]) -> Option<Vec<SegmentPlacement>> {
+        let mut reverse_line = line.to_vec();
+        reverse_line.reverse();
+        let mut reverse_hint = hint.to_vec();
+        reverse_hint.reverse();
+
+        let mut placements = Game::place_all_left(&reverse_hint, &reverse_line);
+        if let Some(placements) = placements.as_mut() {
+            placements.reverse();
+        }
+        // Since the hint is reversed, we have to flip all of the indexes back
+        if let Some(placements) = placements.as_mut() {
+            placements
+                .iter_mut()
+                .for_each(|p| *p = p.map(|p| hint.len() - p - 1))
+        }
+        placements
+    }
+
+    pub fn relax_line(line: &[Square], hint: &[u32]) -> (Vec<Square>, bool) {
+        let left_sol = Game::place_all_left(hint, line).expect("No left solution found");
+        let right_sol = Game::place_all_right(hint, line).expect("No right solution found");
+
+        let mut new_line = vec![Square::Unknown; line.len()]; // Might be interesting for later
+                                                              // to try just cloning the original
+
+        // General logic for this fucky ass algorithm
+        // If the left sol and right sol have the same segment overlapping, then their overlap
+        // must be a square.
+        // If the gaps between the same 2 segments are overlapping, then their overlap must be
+        // empty.
+
+        // These track what the next segment will be to track what gap it is in.
+        // This could prob be an enum thats None when in a segment, but this works too as long as
+        // we check for squares first
+        // Represents the value of the next segment when in an
+        // empty span.
+        // EX: Placements: __00_111___22__
+        //       next seg: 000011112222233;
+        let mut solved = true;
+        let mut left_sol_next_seg = 0;
+        // Ditto for right sol
+        let mut right_sol_next_seg = 0;
+        for i in 0..line.len() {
+            // If passing a segment, increment the next seg indicator
+            if i > 0 && left_sol[i - 1].is_some() && left_sol[i].is_none() {
+                left_sol_next_seg += 1;
+            }
+
+            if i > 0 && right_sol[i - 1].is_some() && right_sol[i].is_none() {
+                right_sol_next_seg += 1;
+            }
+
+            // If they are equal and Some, there is an overlap
+            if left_sol[i].is_some() && (left_sol[i] == right_sol[i]) {
+                new_line[i] = Square::Filled;
+            }
+            // If both are in a gap and they are preceding the same next segment, its empty
+            else if left_sol[i].is_none()
+                && right_sol[i].is_none()
+                && (left_sol_next_seg == right_sol_next_seg)
+            {
+                new_line[i] = Square::Empty;
+            } else {
+                solved = false;
+            }
+        }
+        (new_line, solved)
+    }
+}
+
+impl Solver {
+    pub fn new(game: Game) -> Self {
+        let rows = game.rows;
+        let cols = game.cols;
+        Solver {
+            game,
+            solved_rows: vec![false; rows],
+            solved_cols: vec![false; cols],
+        }
+    }
+
+    pub fn solve(&mut self) {
+        loop {
+            for i in 0..self.game.rows {
+                if self.solved_rows[i] {
+                    continue;
+                }
+
+                let (hint, line) = self.game.get_row(i);
+                let (new_row, solved) = Game::relax_line(&line, &hint);
+                self.solved_rows[i] = solved;
+                self.game.set_row(i, new_row);
+            }
+
+            for i in 0..self.game.cols {
+                if self.solved_cols[i] {
+                    continue;
+                }
+
+                let (hint, line) = self.game.get_col(i);
+                let (new_col, solved) = Game::relax_line(&line, &hint);
+                self.solved_cols[i] = solved;
+                self.game.set_col(i, new_col);
+            }
+
+            if self.solved_rows.iter().all(|val| *val) && self.solved_cols.iter().all(|val| *val) {
+                break;
+            }
+        }
     }
 }
 
