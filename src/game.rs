@@ -1,4 +1,6 @@
-use std::{collections::BinaryHeap, fmt::Display, iter::zip, ops::Index, usize};
+use std::{
+    collections::BinaryHeap, fmt::Display, fs::File, io::Write, iter::zip, ops::Index, usize,
+};
 
 use anyhow::Result;
 
@@ -265,7 +267,7 @@ impl Game {
         placements
     }
 
-    pub fn relax_line(line: &[Square], hint: &[u32]) -> (Vec<Square>, bool) {
+    pub fn relax_line(line: &[Square], hint: &[u32]) -> (Vec<Square>, bool, bool) {
         let left_sol = Game::place_all_left(hint, line).expect("No left solution found");
         let right_sol = Game::place_all_right(hint, line).expect("No right solution found");
 
@@ -286,6 +288,7 @@ impl Game {
         // EX: Placements: __00_111___22__
         //       next seg: 000011112222233;
         let mut solved = true;
+        let mut changed = false;
         let mut left_sol_next_seg = 0;
         // Ditto for right sol
         let mut right_sol_next_seg = 0;
@@ -301,6 +304,9 @@ impl Game {
 
             // If they are equal and Some, there is an overlap
             if left_sol[i].is_some() && (left_sol[i] == right_sol[i]) {
+                if new_line[i] != Square::Filled {
+                    changed = true;
+                }
                 new_line[i] = Square::Filled;
             }
             // If both are in a gap and they are preceding the same next segment, its empty
@@ -308,12 +314,15 @@ impl Game {
                 && right_sol[i].is_none()
                 && (left_sol_next_seg == right_sol_next_seg)
             {
+                if new_line[i] != Square::Empty {
+                    changed = true;
+                }
                 new_line[i] = Square::Empty;
             } else {
                 solved = false;
             }
         }
-        (new_line, solved)
+        (new_line, solved, changed)
     }
 }
 
@@ -328,7 +337,7 @@ impl Solver {
         }
     }
 
-    pub fn solve(&mut self) {
+    pub fn solve(&mut self, file: &mut Option<&mut File>) {
         loop {
             for i in 0..self.game.rows {
                 if self.solved_rows[i] {
@@ -336,8 +345,29 @@ impl Solver {
                 }
 
                 let (hint, line) = self.game.get_row(i);
-                let (new_row, solved) = Game::relax_line(&line, &hint);
+                let (new_row, solved, changed) = Game::relax_line(&line, &hint);
                 self.solved_rows[i] = solved;
+                if !changed {
+                    continue;
+                }
+                if let Some(f) = file.as_mut() {
+                    f.write_all(i.to_string().as_bytes()).unwrap();
+                    f.write_all(b" row ").unwrap();
+                    f.write_all(
+                        &new_row
+                            .iter()
+                            .map(|square| match square {
+                                Square::Unknown => "_",
+                                Square::Filled => "o",
+                                Square::Empty => "x",
+                            })
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                            .as_bytes(),
+                    )
+                    .unwrap();
+                    f.write_all(b"\n").unwrap();
+                };
                 self.game.set_row(i, new_row);
             }
 
@@ -347,8 +377,29 @@ impl Solver {
                 }
 
                 let (hint, line) = self.game.get_col(i);
-                let (new_col, solved) = Game::relax_line(&line, &hint);
+                let (new_col, solved, changed) = Game::relax_line(&line, &hint);
                 self.solved_cols[i] = solved;
+                if !changed {
+                    continue;
+                }
+                if let Some(f) = file.as_mut() {
+                    f.write_all(i.to_string().as_bytes()).unwrap();
+                    f.write_all(b" col ").unwrap();
+                    f.write_all(
+                        &new_col
+                            .iter()
+                            .map(|square| match square {
+                                Square::Unknown => "_",
+                                Square::Filled => "o",
+                                Square::Empty => "x",
+                            })
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                            .as_bytes(),
+                    )
+                    .unwrap();
+                    f.write_all(b"\n").unwrap();
+                };
                 self.game.set_col(i, new_col);
             }
 

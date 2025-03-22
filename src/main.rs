@@ -1,4 +1,5 @@
 use std::{
+    fs::File,
     io::{self, Write},
     time::Duration,
     vec,
@@ -38,10 +39,41 @@ fn main() -> anyhow::Result<()> {
         vec![3],
         vec![1],
     ];
+    let mut file = File::create("solution.txt")?;
+    file.write_all(
+        row_hints
+            .clone()
+            .iter()
+            .map(|hint| {
+                hint.iter()
+                    .map(|seg| seg.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+            .as_bytes(),
+    )?;
+    file.write(b"\n\n");
+    file.write_all(
+        col_hints
+            .clone()
+            .iter()
+            .map(|hint| {
+                hint.iter()
+                    .map(|seg| seg.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+            .as_bytes(),
+    )?;
+    file.write(b"\n\n");
     let mut test_game = game::Game::new(col_hints, row_hints)?;
     let mut solver = game::Solver::new(test_game);
 
-    solver.solve();
+    solver.solve(&mut Some(&mut file));
 
     let mut stdout = io::stdout();
     let _ = execute!(
@@ -51,7 +83,7 @@ fn main() -> anyhow::Result<()> {
         Print(render::double_vec_to_string(solver.game.render_all()))
     )?;
 
-    std::thread::sleep(Duration::from_secs(10));
+    std::thread::sleep(Duration::from_secs(1));
     execute!(stdout, terminal::LeaveAlternateScreen)?;
     Ok(())
 }
