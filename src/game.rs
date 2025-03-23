@@ -1,3 +1,4 @@
+use core::panic;
 use std::{
     collections::BinaryHeap, fmt::Display, fs::File, io::Write, iter::zip, ops::Index, usize,
 };
@@ -270,9 +271,31 @@ impl Game {
     pub fn relax_line(line: &[Square], hint: &[u32]) -> (Vec<Square>, bool, bool) {
         let left_sol = Game::place_all_left(hint, line).expect("No left solution found");
         let right_sol = Game::place_all_right(hint, line).expect("No right solution found");
+        let iwannadie1: Vec<i32> = left_sol
+            .clone()
+            .iter()
+            .map(|c| match c {
+                Some(c1) => *c1 as i32,
+                None => -1,
+            })
+            .collect();
+        let iwannadie2: Vec<i32> = right_sol
+            .clone()
+            .iter()
+            .map(|c| match c {
+                Some(c1) => *c1 as i32,
+                None => -1,
+            })
+            .collect();
+        // dbg!(&left_sol);
+        // dbg!(&right_sol);
+        // let mut file = File::create("debug_output.txt").unwrap();
+        // writeln!("{:?}", &left_sol);
+        // writeln!("{:?}", &right_sol);
 
-        let mut new_line = vec![Square::Unknown; line.len()]; // Might be interesting for later
-                                                              // to try just cloning the original
+        // let mut new_line = vec![Square::Unknown; line.len()]; // Might be interesting for later
+        // to try just cloning the original
+        let mut new_line = line.to_vec();
 
         // General logic for this fucky ass algorithm
         // If the left sol and right sol have the same segment overlapping, then their overlap
@@ -322,6 +345,7 @@ impl Game {
                 solved = false;
             }
         }
+        let changed = line != new_line;
         (new_line, solved, changed)
     }
 }
@@ -339,15 +363,17 @@ impl Solver {
 
     pub fn solve(&mut self, file: &mut Option<&mut File>) {
         loop {
+            let mut puzzle_changed = false;
             for i in 0..self.game.rows {
                 if self.solved_rows[i] {
                     continue;
                 }
 
                 let (hint, line) = self.game.get_row(i);
-                let (new_row, solved, changed) = Game::relax_line(&line, &hint);
+                let (new_row, solved, line_changed) = Game::relax_line(&line, &hint);
                 self.solved_rows[i] = solved;
-                if !changed {
+                puzzle_changed |= line_changed;
+                if !line_changed {
                     continue;
                 }
                 if let Some(f) = file.as_mut() {
@@ -377,9 +403,10 @@ impl Solver {
                 }
 
                 let (hint, line) = self.game.get_col(i);
-                let (new_col, solved, changed) = Game::relax_line(&line, &hint);
+                let (new_col, solved, line_changed) = Game::relax_line(&line, &hint);
                 self.solved_cols[i] = solved;
-                if !changed {
+                puzzle_changed |= line_changed;
+                if !line_changed {
                     continue;
                 }
                 if let Some(f) = file.as_mut() {
@@ -403,8 +430,12 @@ impl Solver {
                 self.game.set_col(i, new_col);
             }
 
+            // Check if all rows and cols are solved
             if self.solved_rows.iter().all(|val| *val) && self.solved_cols.iter().all(|val| *val) {
                 break;
+            }
+            if !puzzle_changed {
+                panic!("Can't be solved completely");
             }
         }
     }
