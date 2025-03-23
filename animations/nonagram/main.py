@@ -9,7 +9,7 @@ class SquareState(Enum):
     EMPTY = 2
 
 
-CELL_SIZE = 0.7
+CELL_SIZE = .525
 class Cell(VMobject):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -333,13 +333,14 @@ def parse_solution_file(file_name) -> Tuple[Game, List[Tuple[List[SquareState], 
 class VisualizeSolution(Scene):
     def construct(self):
         game, solution = parse_solution_file("solution.txt")
-        game.shift(DOWN)
+        game.shift(DOWN * 1.3)
         self.play(Create(game))
         for solution_line in solution:
             try:
                 self.play(LaggedStart(*game.grid.set_line(*solution_line), lag_ratio=0.15))
             except ValueError:
                 pass
+        self.wait(3)
 
 class PeePee(Scene):
     def construct(self):

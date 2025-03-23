@@ -19,25 +19,50 @@ mod test;
 use crate::test::line::test_line;
 
 fn main() -> anyhow::Result<()> {
+    // let col_hints = vec![
+    //     vec![4],
+    //     vec![2, 1],
+    //     vec![1, 3, 1],
+    //     vec![8],
+    //     vec![7],
+    //     vec![6],
+    //     vec![4],
+    // ];
+    //
+    // let row_hints = vec![
+    //     vec![5],
+    //     vec![2, 4],
+    //     vec![1, 5],
+    //     vec![1, 5],
+    //     vec![1, 5],
+    //     vec![1, 3],
+    //     vec![3],
+    //     vec![1],
+    // ];
     let col_hints = vec![
+        vec![1, 3],
+        vec![1, 5, 1],
+        vec![5, 3],
+        vec![2, 1, 1],
         vec![4],
-        vec![2, 1],
-        vec![1, 3, 1],
-        vec![8],
-        vec![7],
-        vec![6],
-        vec![4],
+        vec![2],
+        vec![2],
+        vec![1, 1],
+        vec![1, 1, 1],
+        vec![1, 1, 1, 1],
     ];
 
     let row_hints = vec![
-        vec![5],
-        vec![2, 4],
-        vec![1, 5],
-        vec![1, 5],
-        vec![1, 5],
-        vec![1, 3],
-        vec![3],
-        vec![1],
+        vec![2],
+        vec![1, 1],
+        vec![2],
+        vec![3, 1],
+        vec![4, 1],
+        vec![2, 2, 1, 1],
+        vec![2, 3, 1],
+        vec![6, 1],
+        vec![1, 1, 1],
+        vec![1, 1, 1],
     ];
     let mut file = File::create("solution.txt")?;
     file.write_all(

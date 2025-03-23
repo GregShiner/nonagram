@@ -1,38 +1,52 @@
-5
-2 4
-1 5
-1 5
-1 5
+2
+1 1
+2
+3 1
+4 1
+2 2 1 1
+2 3 1
+6 1
+1 1 1
+1 1 1
+
 1 3
-3
-1
-
+1 5 1
+5 3
+2 1 1
 4
-2 1
-1 3 1
-8
-7
-6
-4
+2
+2
+1 1
+1 1 1
+1 1 1 1
 
-0 row _ _ o o o _ _
-1 row o o x o o o o
-2 row o x o o o o o
-3 row o x o o o o o
-4 row o x o o o o o
-5 row _ _ _ _ o _ _
-0 col x o o o o x x x
-1 col o o x x x _ _ _
-2 col o x o o o x _ _
-3 col o o o o o o o o
-4 col o o o o o o o x
-5 col _ o o o o o _ x
-6 col x o o o o x x x
-0 row x o o o o o x
-5 row x o x o o o x
-6 row x x _ o o _ x
-7 row x x x o x x x
-1 col o o x x x o x x
-2 col o x o o o x o x
-5 col o o o o o o x x
-6 row x x o o o x x
+5 row _ o _ _ o _ _ _ _ _
+6 row _ _ _ _ _ o _ _ _ _
+7 row _ _ o o o o _ _ _ _
+1 col _ _ _ o o o o _ _ _
+2 col _ o o o o _ _ o o _
+4 col x x x x _ o o o _ x
+5 col x x x x x x o o x x
+2 row x _ o _ x x x x x x
+4 row _ o o o _ x _ _ _ _
+5 row o o x o o x _ _ _ _
+2 col o o o o o x _ o o _
+3 col x x x x o o x o x o
+0 row x o o x x x x x x x
+2 row x o o x x x x x x x
+3 row o o o x x x _ _ _ _
+6 row _ o _ x o o o x _ _
+0 col x _ x o _ o _ _ x x
+1 col o x o o o o o x _ _
+6 col x x x x x _ o _ x x
+7 row x x o o o o o o x o
+8 row x x o x _ x x _ _ _
+0 col x o x o o o x x x x
+1 col o x o o o o o x x o
+6 col x x x x x x o o x x
+4 row o o o o x x x _ _ _
+5 row o o x o o x x o x o
+6 row x o o x o o o x _ _
+2 col o o o o o x o o o x
+4 col x x x x x o o o o x
+7 col x x x x x o x o x x
