@@ -227,7 +227,7 @@ impl Game {
                     hint,
                     hint_index + 1,
                     &new_line,
-                    i + *seg_to_place as usize + 1, // TODO: No fuckin way this is correct
+                    placement_index + *seg_to_place as usize + 1, // TODO: No fuckin way this is correct (Update, I was right)
                 ) {
                     None => continue,
                     Some(partial_line) => partial_line,
