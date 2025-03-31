@@ -101,14 +101,14 @@ fn main() -> anyhow::Result<()> {
     solver.solve(&mut Some(&mut file));
 
     let mut stdout = io::stdout();
-    let _ = execute!(
-        stdout,
-        terminal::EnterAlternateScreen,
-        cursor::MoveTo(0, 0),
-        Print(render::double_vec_to_string(solver.game.render_all()))
-    )?;
+    // let _ = execute!(
+    //     stdout,
+    //     terminal::EnterAlternateScreen,
+    //     cursor::MoveTo(0, 0),
+    //     Print(render::double_vec_to_string(solver.game.render_all()))
+    // )?;
 
-    std::thread::sleep(Duration::from_secs(1));
-    execute!(stdout, terminal::LeaveAlternateScreen)?;
+    // std::thread::sleep(Duration::from_secs(1));
+    // execute!(stdout, terminal::LeaveAlternateScreen)?;
     Ok(())
 }

@@ -1,7 +1,5 @@
 use core::panic;
-use std::{
-    collections::BinaryHeap, fmt::Display, fs::File, io::Write, iter::zip, ops::Index, usize,
-};
+use std::{collections::BinaryHeap, fmt::Display, fs::File, io::Write, iter::zip, usize};
 
 use anyhow::Result;
 
@@ -158,7 +156,7 @@ impl Game {
         }
 
         fn place_segment(segment: u32, line: &mut [Square], index: usize) {
-            let _ = line[index..index + segment as usize]
+            line[index..index + segment as usize]
                 .iter_mut()
                 .for_each(|square| *square = Square::Filled);
         }
@@ -171,7 +169,7 @@ impl Game {
             segment_index: usize,
             pos: usize,
         ) {
-            let _ = placements[pos..pos + segment as usize]
+            placements[pos..pos + segment as usize]
                 .iter_mut()
                 .for_each(|cell| *cell = Some(segment_index));
         }
@@ -213,6 +211,8 @@ impl Game {
                 Some(seg) => seg,
             };
 
+            // This may be able to be optimized to be O(n) instead of O(n^2) by making x
+            // checking and validity checking happen in the same loop
             for i in start_index..line.len() + 1 - *seg_to_place as usize {
                 // TODO: Check for off by 1
                 let placement_index = match place_segment_left(*seg_to_place, line, i) {
@@ -227,7 +227,7 @@ impl Game {
                     hint,
                     hint_index + 1,
                     &new_line,
-                    placement_index + *seg_to_place as usize + 1, // TODO: No fuckin way this is correct (Update, I was right)
+                    placement_index + *seg_to_place as usize + 1, // TODO: No fuckin way this is correct (Update, I was right, this comment is being left bc its funny)
                 ) {
                     None => continue,
                     Some(partial_line) => partial_line,
@@ -243,10 +243,8 @@ impl Game {
             }
             None
         }
-        let positions = rec_place_left(hint, 0, &line, 0);
-        let placements =
-            positions.map(|positions| place_segment_positions(&positions, hint, line.len()));
-        placements
+        let positions = rec_place_left(hint, 0, line, 0);
+        positions.map(|positions| place_segment_positions(&positions, hint, line.len()))
     }
 
     pub fn place_all_right(hint: &[u32], line: &[Square]) -> Option<Vec<SegmentPlacement>> {
@@ -268,30 +266,9 @@ impl Game {
         placements
     }
 
-    pub fn relax_line(line: &[Square], hint: &[u32]) -> (Vec<Square>, bool, bool) {
+    pub fn refine_line(line: &[Square], hint: &[u32]) -> (Vec<Square>, bool, bool) {
         let left_sol = Game::place_all_left(hint, line).expect("No left solution found");
         let right_sol = Game::place_all_right(hint, line).expect("No right solution found");
-        let iwannadie1: Vec<i32> = left_sol
-            .clone()
-            .iter()
-            .map(|c| match c {
-                Some(c1) => *c1 as i32,
-                None => -1,
-            })
-            .collect();
-        let iwannadie2: Vec<i32> = right_sol
-            .clone()
-            .iter()
-            .map(|c| match c {
-                Some(c1) => *c1 as i32,
-                None => -1,
-            })
-            .collect();
-        // dbg!(&left_sol);
-        // dbg!(&right_sol);
-        // let mut file = File::create("debug_output.txt").unwrap();
-        // writeln!("{:?}", &left_sol);
-        // writeln!("{:?}", &right_sol);
 
         // let mut new_line = vec![Square::Unknown; line.len()]; // Might be interesting for later
         // to try just cloning the original
@@ -345,7 +322,6 @@ impl Game {
                 solved = false;
             }
         }
-        let changed = line != new_line;
         (new_line, solved, changed)
     }
 }
@@ -370,7 +346,7 @@ impl Solver {
                 }
 
                 let (hint, line) = self.game.get_row(i);
-                let (new_row, solved, line_changed) = Game::relax_line(&line, &hint);
+                let (new_row, solved, line_changed) = Game::refine_line(&line, &hint);
                 self.solved_rows[i] = solved;
                 puzzle_changed |= line_changed;
                 if !line_changed {
@@ -380,7 +356,7 @@ impl Solver {
                     f.write_all(i.to_string().as_bytes()).unwrap();
                     f.write_all(b" row ").unwrap();
                     f.write_all(
-                        &new_row
+                        new_row
                             .iter()
                             .map(|square| match square {
                                 Square::Unknown => "_",
@@ -403,7 +379,7 @@ impl Solver {
                 }
 
                 let (hint, line) = self.game.get_col(i);
-                let (new_col, solved, line_changed) = Game::relax_line(&line, &hint);
+                let (new_col, solved, line_changed) = Game::refine_line(&line, &hint);
                 self.solved_cols[i] = solved;
                 puzzle_changed |= line_changed;
                 if !line_changed {
@@ -413,7 +389,7 @@ impl Solver {
                     f.write_all(i.to_string().as_bytes()).unwrap();
                     f.write_all(b" col ").unwrap();
                     f.write_all(
-                        &new_col
+                        new_col
                             .iter()
                             .map(|square| match square {
                                 Square::Unknown => "_",
