@@ -44,9 +44,16 @@
 0 col x o x o o o x x x x
 1 col o x o o o o o x x o
 6 col x x x x x x o o x x
+1 row o x o x x x x x x x
 4 row o o o o x x x _ _ _
 5 row o o x o o x x o x o
 6 row x o o x o o o x _ _
-2 col o o o o o x o o o x
+9 row x o x o x x x _ _ _
 4 col x x x x x o o o o x
 7 col x x x x x o x o x x
+8 col x x x _ _ x o x _ _
+9 col x x x o x o x o x o
+3 row o o o x x x x x x o
+4 row o o o o x x x x o x
+8 row x x o x o x x x o x
+9 row x o x o x x x x x o

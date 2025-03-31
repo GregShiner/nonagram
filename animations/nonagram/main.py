@@ -1,190 +1,6 @@
-from enum import Enum
-import readline
-from typing import Generator, List, Literal, Tuple
-from manim import DOWN, LEFT, PI, RIGHT, UP, WHITE, Animation, AnimationGroup, Arc, Circle, Create, Cross, FadeIn, FadeOut, LaggedStart, Rectangle, Scene, Square, Succession, Text, Uncreate, VGroup, VMobject
-
-class SquareState(Enum):
-    UNKOWN = 0
-    FILLED = 1
-    EMPTY = 2
-
-
-CELL_SIZE = .525
-class Cell(VMobject):
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-
-        self.state = SquareState.UNKOWN
-        self.background = Square(side_length=CELL_SIZE, z_index=0)
-        self.x_mark = Cross(self.background, z_index=2, scale_factor=0.8)
-        self.square_mark = Square(side_length=CELL_SIZE * 0.8, color=WHITE, z_index=1, fill_opacity=1, stroke_opacity=0)
-
-        self.add(self.background)
-
-        self.x_mark.move_to(self.background.get_center())
-        self.square_mark.move_to(self.background.get_center())
-
-
-    def set_state(self, state: SquareState) -> Animation | None:
-        old_state = self.state
-        self.state = state
-
-        # I dont know why these need to be called in this function
-        self.x_mark.move_to(self.background.get_center())
-        self.square_mark.move_to(self.background.get_center())
-
-        match (old_state, state):
-            case (SquareState.UNKOWN, SquareState.FILLED):
-                return FadeIn(self.square_mark)
-            case (SquareState.UNKOWN, SquareState.EMPTY):
-                return FadeIn(self.x_mark)
-            case (SquareState.FILLED, SquareState.UNKOWN):
-                return FadeOut(self.square_mark)
-            case (SquareState.EMPTY, SquareState.UNKOWN):
-                return FadeOut(self.x_mark)
-            case (SquareState.FILLED, SquareState.EMPTY):
-                return Succession(FadeOut(self.square_mark), FadeIn(self.x_mark))
-            case (SquareState.EMPTY, SquareState.FILLED):
-                return Succession(FadeOut(self.x_mark), FadeIn(self.square_mark))
-        return None
-
-
-class Grid(VMobject):
-    def __init__(self, rows: int, cols: int, **kwargs):
-        super().__init__(**kwargs)
-
-        self.rows = rows
-        self.cols = cols
-        self.squares_group = VGroup()
-        self.squares_group.add(*[Cell() for _ in range(rows * cols)])
-        self.squares_group.arrange_in_grid(rows=rows, cols=cols, buff=0)
-
-        self.add(self.squares_group)
-
-    def get_cell(self, row: int, col: int) -> Cell:
-        if row < 0 or row >= self.rows or col < 0 or col >= self.cols:
-            raise IndexError(f"Position ({row}, {col}) is outside the grid bounds")
-
-        index = row * self.cols + col
-        return self.squares_group[index]
-
-    def set_cell_state(self, row: int, col: int, state: SquareState) -> Animation | None:
-        cell = self.get_cell(row, col)
-        return cell.set_state(state)
-
-    def set_line(self, line: List[SquareState | None], i: int, direction: Literal["row"] | Literal["col"]) -> Generator[Animation]:
-        for (j, square) in enumerate(line):
-            if not square:
-                continue
-
-            if direction == "row":
-                animation = self.set_cell_state(i, j, square)
-            else:
-                animation = self.set_cell_state(j, i, square)
-
-            if animation:
-                yield animation # YA THATS RIGHT, A GENERATOR
-
-
-class HintSegment(VMobject):
-    def __init__(self, value: int | None, **kwargs):
-        super().__init__(**kwargs)
-
-        self.value = value
-        self.background = Square(side_length=CELL_SIZE, z_index=0, background_stroke_color=(150, 150, 150))
-
-        # Add the background to the VMobject
-        self.add(self.background)
-
-        # If a value was provided, create and add text
-        if value is not None:
-            # Create text with the value
-            self.text = Text(str(value), z_index=1)
-
-            # Scale text to fit within the square (with some padding)
-            text_width = self.text.width
-            text_height = self.text.height
-            max_dimension = max(text_width, text_height)
-            scaling_factor = (CELL_SIZE * 0.7) / max_dimension
-            self.text.scale(scaling_factor)
-
-            # Position text in the center of the square
-            self.text.move_to(self.background.get_center())
-
-            # Add the text to the VMobject
-            self.add(self.text)
-
-class Hint(VMobject):
-    def __init__(self, values: List[int], length: int, horizontal: bool, **kwargs):
-        super().__init__(**kwargs)
-
-        if len(values) > length:
-            raise ValueError("values was longer than length")
-
-        # Calculate padding needed
-        padding_count = length - len(values)
-
-        # Create a VGroup to hold all hint segments
-        self.segments = VGroup()
-
-        # Add empty hint segments for padding
-        for _ in range(padding_count):
-            self.segments.add(HintSegment(None))
-
-        # Add hint segments with values
-        for value in values:
-            self.segments.add(HintSegment(value))
-
-        # Arrange segments based on direction
-        if horizontal:
-            self.segments.arrange(RIGHT, buff=0)
-        else:
-            self.segments.arrange(DOWN, buff=0)
-
-        # Add all segments to the VMobject
-        self.add(self.segments)
-
-class HintSet(VMobject):
-    def __init__(self, hint_values: List[List[int]], direction: Literal["row"] | Literal["col"], **kwargs):
-        super().__init__(**kwargs)
-
-        # Find the maximum length of any hint list
-        max_length = 0
-        max_length = max(len(hint_list) for hint_list in hint_values)
-
-        # Create a VGroup to hold all hints
-        self.hints = VGroup()
-
-        # Determine hint direction and arrangement based on the HintSet direction
-        if direction == "row":
-            hint_direction = True
-            arrangement_direction = DOWN
-        elif direction == "col":
-            hint_direction = False
-            arrangement_direction = RIGHT
-
-        # Create a Hint for each set of values
-        for values in hint_values:
-            hint = Hint(values, max_length, hint_direction)
-            self.hints.add(hint)
-
-        # Arrange the hints appropriately
-        if len(self.hints) > 0:
-            self.hints.arrange(arrangement_direction, buff=0)
-
-        # Add all hints to the VMobject
-        self.add(self.hints)
-
-class Game(VMobject):
-    def __init__(self, row_hints: List[List[int]], col_hints: List[List[int]], **kwargs):
-        super().__init__(**kwargs)
-
-        self.grid = Grid(len(row_hints), len(col_hints))
-        self.row_hint_set = HintSet(row_hints, "row")
-        self.col_hint_set = HintSet(col_hints, "col")
-        self.row_hint_set.next_to(self.grid, LEFT, buff=0)
-        self.col_hint_set.next_to(self.grid, UP, buff=0)
-        self.add(self.grid, self.row_hint_set, self.col_hint_set)
+from typing import List, Literal, Tuple
+from manim import BLUE, DOWN, LEFT, ORIGIN, RED, RIGHT, UP, Add, Arrow, Circle, Create, FadeIn, LaggedStart, Rectangle, Scene, Transform, Uncreate, VGroup, Text
+from puzzle import Cell, CellScanner, Game, Grid, Hint, HintSet, Line, SegmentSquares, SquareState, gen_square_mark
 
 class TestCell(Scene):
     def construct(self):
@@ -328,12 +144,14 @@ def parse_solution_file(file_name) -> Tuple[Game, List[Tuple[List[SquareState], 
             line = list(map(parse_square, line_list[2:]))
             solution.append((line, i, direction))
 
-    return (Game(row_hint, col_hint), solution)
+    return (Game(row_hint, col_hint, 1), solution)
 
 class VisualizeSolution(Scene):
     def construct(self):
         game, solution = parse_solution_file("solution.txt")
-        game.shift(DOWN * 1.3)
+        # game.shift(DOWN * 1.3)
+        game.move_to(ORIGIN)
+        game.scale_to_fit_height(7.5)
         self.play(Create(game))
         for solution_line in solution:
             try:
@@ -342,11 +160,102 @@ class VisualizeSolution(Scene):
                 pass
         self.wait(3)
 
-class PeePee(Scene):
+class OverlapAlg(Scene):
     def construct(self):
-        shaft = Rectangle(width=1, height=3)
-        shaft_top_arc = Arc(angle=PI, radius=0.5).next_to(shaft, UP*0.01)
-        left_nut = Circle().shift(DOWN*2.4 + LEFT)
-        right_nut = Circle().shift(DOWN*2.4 + RIGHT)
-        self.play(Create(shaft), Create(shaft_top_arc), Create(left_nut), Create(right_nut))
-        self.wait()
+        all_obj = VGroup()
+        initial_line = Line([3, 4], length=10)
+        initial_line.set_hint_color(0, BLUE)
+        initial_line.set_hint_color(1, RED)
+
+        left_line = initial_line.copy()
+
+
+        left_line.create_segments(3, 4)
+
+        left_line.set_seg_color(0, BLUE)
+        left_line.set_seg_color(1, RED)
+
+        left_line.move_segment_to(0, 0)
+        left_line.move_segment_to(1, 4)
+
+        solution_line = left_line.copy()
+
+        right_line = left_line.copy()
+
+        # initial_text = Text("Initial State")
+        # left_text = Text("Left Solution")
+        # right_text = Text("Right Solution")
+        # sol_text = Text("New Overlap")
+
+        initial_line.shift(UP*2.2)
+        right_line.shift(DOWN*1.1)
+        solution_line.shift(3.3 * DOWN)
+
+        # initial_text.next_to(initial_line, LEFT)
+        # left_text.next_to(left_line, LEFT)
+        # right_text.next_to(right_line, LEFT)
+        # sol_text.next_to(solution_line, LEFT)
+
+        scanner = CellScanner(left_line.squares_group[0], solution_line.squares_group[0])
+        scanner.set_z_index(3)
+
+        whacky_arrow = Arrow(start=right_line.get_critical_point(DOWN), end=solution_line.get_critical_point(UP))
+        whacky_arrow2 = Arrow(start=initial_line.get_critical_point(DOWN), end=left_line.get_critical_point(UP))
+
+        # all_obj.add(initial_line, left_line, right_line, solution_line, scanner, initial_text, left_text, right_text, sol_text, whacky_arrow, whacky_arrow2)
+        all_obj.add(initial_line, left_line, right_line, solution_line, scanner, whacky_arrow, whacky_arrow2)
+        all_obj.move_to(ORIGIN)
+        original_width = all_obj.width
+        # all_obj.scale_to_fit_width(14)
+        ratio = all_obj.width/original_width
+
+        self.play(FadeIn(initial_line))
+        self.play(FadeIn(left_line, whacky_arrow2, shift=DOWN*1.1))
+        self.play(FadeIn(right_line, shift=DOWN*1.1))
+        self.play(FadeIn(solution_line, whacky_arrow, shift=DOWN*1.1))
+        # self.play(Create(scanner))
+
+        self.play(right_line.animate.move_segment_to(1, 6))
+        self.play(right_line.animate.move_segment_to(0, 2))
+        self.wait(3)
+        return
+
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+
+        top_blue_copy1 = left_line.segment_group[0][2].copy()
+        bot_blue_copy1 = right_line.segment_group[0][0].copy()
+
+        sol_square1 = gen_square_mark(ratio, 0.8)
+        sol_square1.set_color(BLUE)
+        sol_square1.move_to(solution_line.squares_group[2])
+        self.play(Transform(top_blue_copy1, sol_square1), Transform(bot_blue_copy1, sol_square1))
+
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+
+        top_blue_copy2 = left_line.segment_group[1][2].copy()
+        bot_blue_copy2 = right_line.segment_group[1][0].copy()
+
+        sol_square2 = gen_square_mark(ratio, 0.8)
+        sol_square2.set_color(RED)
+        sol_square2.move_to(solution_line.squares_group[6])
+        self.play(Transform(top_blue_copy2, sol_square2), Transform(bot_blue_copy2, sol_square2))
+
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+
+        top_blue_copy3 = left_line.segment_group[1][3].copy()
+        bot_blue_copy3 = right_line.segment_group[1][1].copy()
+
+        sol_square3 = gen_square_mark(ratio, 0.8)
+        sol_square3.set_color(RED)
+        sol_square3.move_to(solution_line.squares_group[7])
+        self.play(Transform(top_blue_copy3, sol_square3), Transform(bot_blue_copy3, sol_square3))
+
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+        self.play(scanner.animate.shift_by_cell(RIGHT*ratio))
+        self.play(Uncreate(scanner))
+        print(all_obj.height)
+        self.wait(3)
