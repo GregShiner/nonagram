@@ -30,6 +30,32 @@ class Cell(VMobject):
         self.square_mark.move_to(self.background.get_center())
 
 
+    def set_state_no_animate(self, state: SquareState) -> None:
+        old_state = self.state
+        self.state = state
+
+        # I dont know why these need to be called in this function
+        self.x_mark.move_to(self.background.get_center())
+        self.square_mark.move_to(self.background.get_center())
+
+        match (old_state, state):
+            case (SquareState.UNKOWN, SquareState.FILLED):
+                self.square_mark.set_opacity(1)
+            case (SquareState.UNKOWN, SquareState.EMPTY):
+                self.x_mark.set_opacity(1)
+            case (SquareState.FILLED, SquareState.UNKOWN):
+                self.square_mark.set_opacity(0)
+            case (SquareState.EMPTY, SquareState.UNKOWN):
+                self.x_mark.set_opacity(0)
+            case (SquareState.FILLED, SquareState.EMPTY):
+                self.square_mark.set_opacity(0)
+                self.x_mark.set_opacity(1)
+            case (SquareState.EMPTY, SquareState.FILLED):
+                self.x_mark.set_opacity(0)
+                self.square_mark.set_opacity(1)
+        return None
+
+
     def set_state(self, state: SquareState) -> Animation | None:
         old_state = self.state
         self.state = state
@@ -181,6 +207,7 @@ class Line(VMobject):
         self.hint_obj = Hint(hint, len(hint), True, cell_size)
         self.squares_group = VGroup()
         self.segment_group = VGroup()
+        self.xs_group = VGroup()
         self.cell_size = cell_size
         if not initial_line:
             if length is None:
@@ -194,7 +221,7 @@ class Line(VMobject):
         self.hint_obj.next_to(self.squares_group, LEFT, buff=0)
         full_group = VGroup(self.hint_obj, self.squares_group)
         full_group.center()
-        self.add(self.hint_obj, self.squares_group, self.segment_group)
+        self.add(self.hint_obj, self.squares_group, self.segment_group, self.xs_group)
 
     def create_segments(self, *segment_lengths: int):
         for length in segment_lengths:
@@ -215,6 +242,13 @@ class Line(VMobject):
 
     def set_seg_color(self, seg_index: int, color: ParsableManimColor):
         self.segment_group[seg_index].set_color(color)
+
+    def set_xs(self, indices):
+        for i in indices:
+            cross = Cross(self.squares_group[i], z_index=2, scale_factor=0.8)
+            cross.move_to(self.squares_group[i])
+            self.xs_group.add(cross)
+
 
 class HintSet(VMobject):
     def __init__(self, hint_values: List[List[int]], direction: Literal["row"] | Literal["col"], cell_size = CELL_SIZE, **kwargs):
