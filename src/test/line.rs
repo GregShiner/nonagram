@@ -78,7 +78,7 @@ macro_rules! overlap_tests {
         pub fn $name() {
             let (hint, line, expected) = $input;
             assert_eq!(
-                str_from_line(Game::relax_line(&line_from_str(line), hint).0),
+                str_from_line(Game::refine_line(&line_from_str(line), hint).0),
                 expected,
             )
         }
@@ -101,14 +101,14 @@ left_line_tests! {
 
 right_line_tests! {
     right_one_seg_1: (&[3], "_____", Some("__000")),
-    right_one_seg_2: (&[3], "___o_", Some("_000_")),
-    right_one_seg_3: (&[3], "____o", Some("__000")),
-    right_one_seg_4: (&[3], "x____", Some("_000_")),
+    right_one_seg_2: (&[3], "_o___", Some("_000_")),
+    right_one_seg_3: (&[3], "o____", Some("000__")),
+    right_one_seg_4: (&[3], "x____", Some("__000")),
     right_one_seg_5: (&[3], "xx___", Some("__000")),
     right_one_seg_6: (&[3], "x___x", Some("_000_")),
     right_two_seg_1: (&[3, 2], "__________", Some("____000_11")),
-    right_two_seg_2: (&[3, 2], "____x_____", Some("000__11___")),
-    right_two_seg_3: (&[3, 2], "_________o", Some("000_____11")),
+    right_two_seg_2: (&[3, 2], "______x___", Some("___000__11")),
+    right_two_seg_3: (&[3, 2], "o_________", Some("000_____11")),
     right_too_long_1: (&[3], "__", None::<&str>),
 }
 
