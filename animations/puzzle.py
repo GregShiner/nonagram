@@ -1,6 +1,6 @@
 from enum import Enum
-from typing import Generator, List, Literal
-from manim import BLUE, DOWN, LEFT, RIGHT, UP, WHITE, Animation, AnimationGroup, Circle, Cross, FadeIn, FadeOut, Mobject, ParsableManimColor, Rectangle, Square, Succession, SurroundingRectangle, Text, VGroup, VMobject, np
+from typing import Any, Generator, List, Literal
+from manim import BLUE, DOWN, LEFT, RIGHT, UP, WHITE, Animation, AnimationGroup, Arrow, Circle, Cross, FadeIn, FadeOut, Mobject, ParsableManimColor, Rectangle, Square, Succession, SurroundingRectangle, Text, VGroup, VMobject, np, ManimColor
 from manim.typing import Point3DLike, Vector3D
 
 class SquareState(Enum):
@@ -302,3 +302,40 @@ class Game(VMobject):
         self.row_hint_set.next_to(self.grid, LEFT, buff=0)
         self.col_hint_set.next_to(self.grid, UP, buff=0)
         self.add(self.grid, self.row_hint_set, self.col_hint_set)
+
+
+def states_to_cells(states: List[SquareState]) -> List[Cell]:
+    cells = []
+    for square in states:
+        cell = Cell()
+        cell.set_state(square)
+        cells.append(cell)
+    return cells
+
+
+class LabeledPointer(Arrow):
+    def __init__(self, text: str, label_dir: Vector3D = DOWN, start=DOWN/2, end=UP, *args, **kwargs: Any) -> None:
+        super().__init__(start, end, *args, **kwargs)
+        self.text = Text(text).next_to(self, label_dir)
+        self.add(self.text)
+
+
+class SegPlacer(Line):
+    def __init__(self, hint: list[int], initial_line: List[Cell] | None = None, length: int | None = None, cell_size=CELL_SIZE, **kwargs):
+        super().__init__(hint, initial_line, length, cell_size, **kwargs)
+        n: int = len(hint) or length # Will be checked for None by previous line
+        # Calculates n colors by shifting the hue value by 1 / n
+        self.colors = [ManimColor.from_hsv((i / n, 1.0, 1.0)) for i in range(n)]
+
+        self.unplaced_box = SurroundingRectangle(self.squares_group, buff=0)
+        self.unplaced_box.next_to(self.squares_group, UP)
+        self.unplaced_label = Text("Unplaced Segments").next_to(self.unplaced_box, UP)
+        self.create_segments(*hint)
+        self.segment_group.arrange(RIGHT)
+        self.segment_group.move_to(self.unplaced_box)
+
+        for i in range(n):
+            self.set_hint_color(i, self.colors[i])
+            self.set_seg_color(i, self.colors[i])
+
+        self.add(self.unplaced_box, self.unplaced_label)
